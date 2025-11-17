@@ -1,0 +1,32 @@
+*.env
+
+# Go build artifacts
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of `go build` and other build outputs
+*.out
+bin/
+build/
+dist/
+
+# Coverage and profiling data
+*.cov
+*.cover
+coverage.*
+coverage.out
+*.prof
+cpu.prof
+mem.prof
+trace.out
+
+# Go workspace/diagnostic files
+.idea/
+.vscode/
