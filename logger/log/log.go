@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/opxyc/kafka-scc/consumer"
+	"github.com/opxyc/kafkascc-go/consumer"
 )
 
 type stdJSONLogger struct {

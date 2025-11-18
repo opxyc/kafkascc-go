@@ -1,4 +1,4 @@
-module github.com/opxyc/kafka-scc
+module github.com/opxyc/kafkascc-go
 
 go 1.23
 

@@ -1,6 +1,6 @@
 # Kafka SCC: Kafka Sequential Commit Consumer
 
-A high-throughput, fault-tolerant Kafka consumer service designed for strict reliability requirements (e.g., AML, fraud detection, and compliance pipelines). It enforces in-order commits per partition, explicit manual commits, pause/retry on API unavailability, and graceful shutdown.
+A high-throughput, fault-tolerant Kafka consumer service designed for strict reliability requirements (e.g., AML, fraud detection, and compliance pipelines). It enforces in-order commits per partition, explicit manual commits, pause/retry on downstream unavailability, and graceful shutdown.
 
 ## Key Features
 
@@ -30,7 +30,7 @@ SCC means the consumer will commit offsets strictly in order per partition, and 
 - **Worker**
   A goroutine that runs your `handler.MessageHandler` concurrently. It attaches a per-message `trace_id` to the context so logs and downstream calls can be correlated.
 - **PausePredicate**
-  A function `func(error) bool` that defines which handler errors should pause and trigger retries (e.g., API unavailable). Use `consumer.OrPauseErrors(...)` to compose them.
+  A function `func(error) bool` that defines which handler errors should pause and trigger retries. Use `consumer.OrPauseErrors(...)` to compose them.
 
 ## Configuration (Consumer-only essentials)
 
@@ -52,7 +52,7 @@ type MessageHandler interface {
 }
 ```
 
-Example (posting to an external API): `example/consumer/handler/http_poster.go`
+Example (posting to an external API): [`example/consumer/handler/http_poster.go`](example/consumer/handler/http_poster.go)
 
 ## Logging
 

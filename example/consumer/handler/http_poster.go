@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opxyc/kafka-scc/consumer"
-	logger "github.com/opxyc/kafka-scc/logger/log"
+	"github.com/opxyc/kafkascc-go/consumer"
+	logger "github.com/opxyc/kafkascc-go/logger/log"
 )
 
 // APIPostHandler forwards messages to an external HTTP API

@@ -7,10 +7,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/opxyc/kafka-scc/consumer"
-	"github.com/opxyc/kafka-scc/example/consumer/config"
-	"github.com/opxyc/kafka-scc/example/consumer/handler"
-	l "github.com/opxyc/kafka-scc/logger/log"
+	"github.com/opxyc/kafkascc-go/consumer"
+	"github.com/opxyc/kafkascc-go/example/consumer/config"
+	"github.com/opxyc/kafkascc-go/example/consumer/handler"
+	l "github.com/opxyc/kafkascc-go/logger/log"
 )
 
 func main() {
@@ -27,15 +27,9 @@ func main() {
 	consumerManager := consumer.NewManager()
 	gate := consumer.NewGate(true) // start healthy; will pause on API errors
 
-	logger := l.New(log.Default()).With("service", "kafka-scc")
+	logger := l.New(log.Default()).With("service", "kafkascc-go")
 
-	// Configure worker pool size
-	wc := 1
-	if wc < 1 {
-		wc = 1
-	}
-
-	workerCount := wc
+	workerCount := 8
 	testTopicConsumer := consumer.New(
 		cfg.Kafka.Brokers,
 		cfg.Kafka.GroupID,
