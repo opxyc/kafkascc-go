@@ -27,10 +27,11 @@ type Consumer struct {
 	backoffMax   time.Duration
 	log          Logger
 	pauseDecider PausePredicate
+	commitCB     CommitCallback // Callback for when messages are committed
 }
 
 // New creates a new consumer.
-func New(brokers []string, groupID string, topic string, h MessageHandler, gate *Gate, workerCount int, backoffBase time.Duration, backoffMax time.Duration, log Logger, decider PausePredicate) *Consumer {
+func New(brokers []string, groupID string, topic string, h MessageHandler, gate *Gate, workerCount int, backoffBase time.Duration, backoffMax time.Duration, log Logger, decider PausePredicate, commitCB CommitCallback) *Consumer {
 	// If the handler implements the TopicSetter interface, set the topic
 	if ts, ok := h.(TopicSetter); ok {
 		ts.SetTopic(topic)
@@ -194,7 +195,7 @@ func (c *Consumer) makeCoordinator(ctx context.Context, results <-chan result) (
 		return c.handler.Handle(procCtx, msg.Value)
 	}
 
-	coord := NewCoordinatorWithProcessor(c.topic, c.reader, c.gate, c.cancel, processFn, c.backoffBase, c.backoffMax, c.log, c.pauseDecider)
+	coord := NewCoordinatorWithProcessor(c.topic, c.reader, c.gate, c.cancel, processFn, c.backoffBase, c.backoffMax, c.log, c.pauseDecider, c.commitCB)
 	done := make(chan struct{})   // closed when coordinator goroutine exits
 	stopCh := make(chan struct{}) // closed to tell fetch loop to stop
 

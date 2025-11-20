@@ -42,6 +42,7 @@ func main() {
 		cfg.BackoffMax,
 		logger,
 		consumer.OrPauseErrors(handler.ErrUnavailable),
+		nil,
 	)
 
 	consumerManager.AddConsumer(testTopicConsumer)

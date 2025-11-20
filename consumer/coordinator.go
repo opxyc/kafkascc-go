@@ -16,16 +16,18 @@ type Coordinator struct {
 	log          Logger
 	pauseDecider PausePredicate
 
-	partitions map[int]*partState
-	starts     map[int]int64
-	processFn  func(ctx context.Context, msg kafka.Message) error
+	partitions  map[int]*partState
+	starts      map[int]int64
+	processFn   func(ctx context.Context, msg kafka.Message) error
+	commitCB    CommitCallback // Callback for when messages are committed
+	
 	// retry/backoff settings
 	baseBackoff time.Duration
 	maxBackoff  time.Duration
 }
 
-// NewCoordinatorWithProcessor creates a coordinator with a custom processing function
-func NewCoordinatorWithProcessor(topic string, committer MessageCommitter, gate *Gate, cancel context.CancelFunc, processFn func(ctx context.Context, msg kafka.Message) error, baseBackoff time.Duration, maxBackoff time.Duration, log Logger, decider PausePredicate) *Coordinator {
+// NewCoordinatorWithProcessor creates a coordinator with a custom processing function and commit callback
+func NewCoordinatorWithProcessor(topic string, committer MessageCommitter, gate *Gate, cancel context.CancelFunc, processFn func(ctx context.Context, msg kafka.Message) error, baseBackoff time.Duration, maxBackoff time.Duration, log Logger, decider PausePredicate, commitCB CommitCallback) *Coordinator {
 	return &Coordinator{
 		topic:        topic,
 		committer:    committer,
@@ -36,13 +38,14 @@ func NewCoordinatorWithProcessor(topic string, committer MessageCommitter, gate 
 		partitions:   make(map[int]*partState),
 		starts:       make(map[int]int64),
 		processFn:    processFn,
+		commitCB:     commitCB,
 		baseBackoff:  baseBackoff,
 		maxBackoff:   maxBackoff,
 	}
 }
 
-func NewCoordinator(topic string, committer MessageCommitter, gate *Gate, cancel context.CancelFunc, log Logger, decider PausePredicate) *Coordinator {
-	return NewCoordinatorWithProcessor(topic, committer, gate, cancel, nil, 500*time.Millisecond, 10*time.Second, log, decider)
+func NewCoordinator(topic string, committer MessageCommitter, gate *Gate, cancel context.CancelFunc, log Logger, decider PausePredicate, commitCB CommitCallback) *Coordinator {
+	return NewCoordinatorWithProcessor(topic, committer, gate, cancel, nil, 500*time.Millisecond, 10*time.Second, log, decider, commitCB)
 }
 
 // SetBaseBackoff sets the base retry delay
@@ -159,10 +162,19 @@ func (c *Coordinator) Process(ctx context.Context, r ProcessResult) error {
 		// commit this offset
 		if err := c.committer.CommitMessages(ctx, res.Msg); err != nil {
 			log.Error("commit-error", "event", "commit_error", "offset", res.Msg.Offset, "trace_id", traceID(c.topic, res.Msg), "err", err.Error())
+			// Call the commit callback with the error
+			if c.commitCB != nil {
+				c.commitCB(res.Msg, err)
+			}
 			return err
 		}
 
 		log.Info("committed", "event", "committed", "offset", res.Msg.Offset, "trace_id", traceID(c.topic, res.Msg))
+		
+		// Call the commit callback on successful commit
+		if c.commitCB != nil {
+			c.commitCB(res.Msg, nil)
+		}
 		delete(st.buf, st.next)
 		st.next++
 	}

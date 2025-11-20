@@ -170,6 +170,7 @@ func TestTopicConsumer_FetchLoopStopsOnCoordinatorSignal(t *testing.T) {
 		time.Millisecond,
 		newNopLogger(),
 		func(error) bool { return false },
+		nil,
 	)
 
 	// Process a message - this should trigger a commit error

@@ -61,6 +61,11 @@ type result struct {
 	err error
 }
 
+// CommitCallback is a function that gets called after a message is successfully committed
+// The function receives the committed message and any error that occurred during commit
+// If the commit was successful, the error will be nil
+type CommitCallback func(msg kafka.Message, err error)
+
 type partState struct {
 	next int64
 	buf  map[int64]ProcessResult

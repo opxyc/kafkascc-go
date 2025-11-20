@@ -37,7 +37,7 @@ func TestCoordinatorInOrderCommit(t *testing.T) {
 	mc := &mockCommitter{}
 	gate := NewGate(true)
 	l := newNopLogger()
-	coord := NewCoordinatorWithProcessor("topicA", mc, gate, cancel, nil, 10*time.Millisecond, 50*time.Millisecond, l, func(error) bool { return false })
+	coord := NewCoordinatorWithProcessor("topicA", mc, gate, cancel, nil, 10*time.Millisecond, 50*time.Millisecond, l, func(error) bool { return false }, nil)
 	// starting offsets
 	coord.SetStartOffset(0, 10)
 	// feed out-of-order results
@@ -78,7 +78,7 @@ func TestCoordinatorPausePredicateRetry(t *testing.T) {
 		}
 		return nil
 	}
-	coord := NewCoordinatorWithProcessor("topicB", mc, gate, cancel, processFn, 5*time.Millisecond, 20*time.Millisecond, l, func(err error) bool { return errors.Is(err, pErr) })
+	coord := NewCoordinatorWithProcessor("topicB", mc, gate, cancel, processFn, 5*time.Millisecond, 20*time.Millisecond, l, func(err error) bool { return errors.Is(err, pErr) }, nil)
 	coord.SetStartOffset(0, 1)
 	if err := coord.Process(ctx, ProcessResult{Msg: km(0, 1), Err: pErr}); err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -102,7 +102,7 @@ func TestCoordinatorNonPausingErrorIsCommitted(t *testing.T) {
 	gate := NewGate(true)
 	l := newNopLogger()
 	nonPause := errors.New("non-pause")
-	coord := NewCoordinatorWithProcessor("topicC", mc, gate, cancel, nil, 5*time.Millisecond, 20*time.Millisecond, l, func(error) bool { return false })
+	coord := NewCoordinatorWithProcessor("topicC", mc, gate, cancel, nil, 5*time.Millisecond, 20*time.Millisecond, l, func(error) bool { return false }, nil)
 	coord.SetStartOffset(0, 5)
 	if err := coord.Process(ctx, ProcessResult{Msg: km(0, 5), Err: nonPause}); err != nil {
 		t.Fatalf("unexpected err: %v", err)
