@@ -30,3 +30,6 @@ trace.out
 # Go workspace/diagnostic files
 .idea/
 .vscode/
+
+node_modules/
+dist/

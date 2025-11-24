@@ -1,14 +1,14 @@
 import { config } from "@/config.js";
-import { logger } from "@/logger.js";
-import { makeKafka } from "@/kafka/factory.js";
 import { KafkajsConsumerAdapter } from "@/kafka/consumer.adapter.js";
-import { LoggingMobEventHandler } from "@/processing/mobevent.handler.js";
 import { ConsumerController } from "@/kafka/consumer.controller.js";
 import {
-  DependencyUnavailableError,
-  DBUnavailableError,
   APIUnavailableError,
+  DBUnavailableError,
+  DependencyUnavailableError,
 } from "@/kafka/errors.js";
+import { makeKafka } from "@/kafka/factory.js";
+import { logger } from "@/logger.js";
+import { LoggingMobEventHandler } from "@/processing/mobevent.handler.js";
 
 export class App {
   private controller: ConsumerController;
@@ -43,7 +43,7 @@ export class App {
         concurrencyPerPartition: Number(
           process.env["CONCURRENCY_PER_PARTITION"] ?? 16
         ),
-        pausePredicate: (err, ctx) => {
+        pausePredicate: (err) => {
           // Pause on typed dependency unavailability errors
           return (
             err instanceof DBUnavailableError ||
