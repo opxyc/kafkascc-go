@@ -22,12 +22,14 @@ type Consumer struct {
 	gate          *Gate
 	lastCommitted map[int]int64
 	// processing
-	workerCount  int
-	backoffBase  time.Duration
-	backoffMax   time.Duration
-	log          Logger
-	pauseDecider PausePredicate
-	commitCB     CommitCallback // Callback for when messages are committed
+	workerCount     int
+	backoffBase     time.Duration
+	backoffMax      time.Duration
+	log             Logger
+	pauseDecider    PausePredicate
+	commitCB        CommitCallback // Callback for when messages are committed
+	heartbeatTicker *time.Ticker   // Ticker for heartbeat checks
+	lastHeartbeat   time.Time      // Timestamp of last successful heartbeat
 }
 
 // New creates a new consumer.
@@ -50,18 +52,36 @@ func New(brokers []string, groupID string, topic string, h MessageHandler, gate 
 	}
 
 	return &Consumer{
-		topic:         topic,
-		handler:       h,
-		brokers:       brokers,
-		groupID:       groupID,
-		gate:          gate,
-		lastCommitted: make(map[int]int64),
-		workerCount:   workerCount,
-		backoffBase:   backoffBase,
-		backoffMax:    backoffMax,
-		log:           log.With("component", "consumer", "topic", topic),
-		pauseDecider:  decider,
+		topic:           topic,
+		handler:         h,
+		brokers:         brokers,
+		groupID:         groupID,
+		gate:            gate,
+		lastCommitted:   make(map[int]int64),
+		workerCount:     workerCount,
+		backoffBase:     backoffBase,
+		backoffMax:      backoffMax,
+		log:             log.With("component", "consumer", "topic", topic),
+		pauseDecider:    decider,
+		commitCB:        commitCB,
+		heartbeatTicker: time.NewTicker(5 * time.Second), // Check every 5 seconds
+		lastHeartbeat:   time.Now(),                      // Initialize lastHeartbeat
 	}
+}
+
+// CommitMessages commits the specified message offsets to Kafka
+func (c *Consumer) CommitMessages(ctx context.Context, msgs ...kafka.Message) error {
+	if c.reader == nil {
+		return fmt.Errorf("reader is nil")
+	}
+
+	// Perform the commit
+	err := c.reader.CommitMessages(ctx, msgs...)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Start begins consuming messages
@@ -89,14 +109,12 @@ func (c *Consumer) Start(ctx context.Context) {
 				}
 
 				c.reader = kafka.NewReader(kafka.ReaderConfig{
-					Brokers: c.brokers,
-					GroupID: c.groupID,
-					Topic:   c.topic,
-					// Disable auto-commit; we'll commit only on successful processing
-					CommitInterval: 0,
-					MinBytes:       10e2,
-					MaxBytes:       10e6,
-					StartOffset:    kafka.LastOffset,
+					Brokers:        c.brokers,
+					GroupID:        c.groupID,
+					Topic:          c.topic,
+					CommitInterval: 0, // Manual commits only
+					StartOffset:    kafka.FirstOffset,
+					MaxBytes:       10e6, // 10MB max per partition per fetch
 				})
 
 				// Run consumption until context done or a handler error triggers stop
@@ -272,6 +290,7 @@ func (c *Consumer) fetchLoop(
 			msg, err := c.reader.FetchMessage(ctx)
 			if err != nil {
 				if ctx.Err() != nil {
+					log.Info("context-done", "reason", ctx.Err())
 					return
 				}
 				log.Error("fetch-error", "err", err.Error())
@@ -320,7 +339,7 @@ func (c *Consumer) Stop() error {
 	select {
 	case <-done:
 		return nil
-	case <-time.After(12 * time.Second):
+	case <-time.After(4 * time.Second):
 		// Timed out waiting; return an error to signal potential leak
 		return fmt.Errorf("consumer stop timeout for topic %s", c.topic)
 	}

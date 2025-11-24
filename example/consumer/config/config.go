@@ -45,7 +45,7 @@ func Load() (*Config, error) {
 	cfg.LogLevel = getEnv("LOG_LEVEL", "info")
 
 	// API health/ping configuration
-	cfg.APIBaseURL = getEnv("API_BASE_URL", "http://localhost:5500")
+	cfg.APIBaseURL = getEnv("API_BASE_URL", "http://localhost:8090")
 	cfg.APIHealthPath = getEnv("API_HEALTH_PATH", "/")
 	if iv := getEnv("PING_INTERVAL_SECONDS", "10"); iv != "" {
 		if n, err := strconv.Atoi(iv); err == nil && n > 0 {

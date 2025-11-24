@@ -159,8 +159,9 @@ func (c *Coordinator) Process(ctx context.Context, r ProcessResult) error {
 			}
 		}
 
-		// commit this offset
-		if err := c.committer.CommitMessages(ctx, res.Msg); err != nil {
+		// commit this offset with acknowledgment
+		err := c.committer.CommitMessages(ctx, res.Msg)
+		if err != nil {
 			log.Error("commit-error", "event", "commit_error", "offset", res.Msg.Offset, "trace_id", traceID(c.topic, res.Msg), "err", err.Error())
 			// Call the commit callback with the error
 			if c.commitCB != nil {
@@ -170,6 +171,11 @@ func (c *Coordinator) Process(ctx context.Context, r ProcessResult) error {
 		}
 
 		log.Info("committed", "event", "committed", "offset", res.Msg.Offset, "trace_id", traceID(c.topic, res.Msg))
+		
+		// Update last heartbeat timestamp to indicate we're making progress
+		if consumer, ok := c.committer.(interface{ UpdateHeartbeat() }); ok {
+			consumer.UpdateHeartbeat()
+		}
 		
 		// Call the commit callback on successful commit
 		if c.commitCB != nil {
