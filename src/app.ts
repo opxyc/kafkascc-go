@@ -9,6 +9,11 @@ import {
 import { makeKafka } from "@/kafka/factory.js";
 import { logger } from "@/logger.js";
 import { LoggingMobEventHandler } from "@/processing/mobevent.handler.js";
+import KafkaJS from "kafkajs";
+import SnappyCodec from "kafkajs-snappy";
+
+const { CompressionCodecs, CompressionTypes } = KafkaJS;
+CompressionCodecs[CompressionTypes.Snappy] = SnappyCodec;
 
 export class App {
   private controller: ConsumerController;
