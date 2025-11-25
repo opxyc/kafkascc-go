@@ -1,11 +1,14 @@
-import { logger } from "@/logger.js";
-import { FedMobileEvent, type MobEvent } from "@/types/fedmobile.js";
+import { APIUnavailableError } from "@/kafka/errors.js";
 import type {
   ConsumeContext,
-  IMessageHandler,
   Control,
+  IMessageHandler,
 } from "@/kafka/types.js";
-import { DBUnavailableError, APIUnavailableError } from "@/kafka/errors.js";
+import { logger } from "@/logger.js";
+import { FedMobileEvent, type MobEvent } from "@/types/fedmobile.js";
+import fetch, { type RequestInit } from "node-fetch";
+
+const API_URL = "http://localhost:8090/events";
 
 export class LoggingMobEventHandler implements IMessageHandler {
   async handle(
@@ -34,17 +37,29 @@ export class LoggingMobEventHandler implements IMessageHandler {
       validated = rawValue;
     }
 
-    // Simulate dependency checks (replace with real logic)
-    const dbIsDown = false;
-    const apiIsDown = false;
-    const sharedDepDown = false;
+    try {
+      // Send event to API
+      const fetchOptions: RequestInit = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(validated),
+      };
 
-    if (dbIsDown) throw new DBUnavailableError();
-    if (apiIsDown) throw new APIUnavailableError();
+      const response = await fetch(API_URL, {
+        ...fetchOptions,
+      });
 
-    if (sharedDepDown) {
-      control.closeGate("shared dependency down");
-      throw new Error("Shared downstream unavailable");
+      if (!response.ok) {
+        throw new Error(`API responded with status ${response.status}`);
+      }
+    } catch (error) {
+      logger.error(
+        { error, url: API_URL, event: validated },
+        "Failed to send event to API"
+      );
+      throw new APIUnavailableError("Failed to send event to API");
     }
 
     logger.info(

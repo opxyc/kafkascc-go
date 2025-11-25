@@ -19,7 +19,24 @@ export class App {
   private controller: ConsumerController;
 
   constructor() {
-    this.controller = new ConsumerController();
+    this.controller = new ConsumerController({
+      // Global pause predicate that closes the gate on APIUnavailableError
+      pausePredicate: (err, ctx) => {
+        if (err instanceof APIUnavailableError) {
+          logger.warn(
+            {
+              error: err,
+              topic: ctx.topic,
+              partition: ctx.partition,
+              offset: ctx.offset,
+            },
+            "API unavailable, triggering global pause"
+          );
+          return true; // This will trigger the gate to close
+        }
+        return false;
+      },
+    });
 
     const kafka = makeKafka();
     const handler = new LoggingMobEventHandler();
