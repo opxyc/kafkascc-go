@@ -25,7 +25,7 @@ type Reader interface {
 }
 
 type MessageHandler interface {
-	Handle(ctx context.Context, message []byte) error
+	Handle(ctx context.Context, message kafka.Message) error
 	Topic() string
 	Close() error
 }

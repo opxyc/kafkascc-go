@@ -11,6 +11,7 @@ import (
 
 	"github.com/opxyc/kafkascc-go/consumer"
 	logger "github.com/opxyc/kafkascc-go/logger/log"
+	"github.com/segmentio/kafka-go"
 )
 
 // APIPostHandler forwards messages to an external HTTP API
@@ -40,9 +41,9 @@ func (h *APIPostHandler) Topic() string {
 	return h.topic
 }
 
-func (h *APIPostHandler) Handle(ctx context.Context, message []byte) error {
+func (h *APIPostHandler) Handle(ctx context.Context, message kafka.Message) error {
 	// Example: perform a POST to base URL; replace path, method, body as needed.
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.baseURL+"/events", bytes.NewReader(message))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.baseURL+"/events", bytes.NewReader(message.Value))
 	if err != nil {
 		h.log.Error("handler-request-build", "event", "handler_request_build", "topic", h.topic, "err", err.Error(), "trace_id", consumer.TIDFromCtx(ctx))
 		return err
@@ -64,7 +65,7 @@ func (h *APIPostHandler) Handle(ctx context.Context, message []byte) error {
 		return ErrUnavailable
 	}
 
-	h.log.Info("handler-ok", "event", "handler_ok", "topic", h.topic, "status", resp.StatusCode, "size", len(message), "trace_id", consumer.TIDFromCtx(ctx))
+	h.log.Info("handler-ok", "event", "handler_ok", "topic", h.topic, "status", resp.StatusCode, "size", len(message.Value), "trace_id", consumer.TIDFromCtx(ctx))
 	return nil
 }
 

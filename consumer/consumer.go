@@ -14,6 +14,7 @@ type Consumer struct {
 	topic         string
 	handler       MessageHandler
 	reader        Reader
+	readerConfig  kafka.ReaderConfig
 	wg            sync.WaitGroup
 	cancel        context.CancelFunc
 	once          sync.Once
@@ -30,7 +31,7 @@ type Consumer struct {
 }
 
 // New creates a new consumer.
-func New(brokers []string, groupID string, topic string, h MessageHandler, gate *Gate, workerCount int, backoffBase time.Duration, backoffMax time.Duration, log Logger, decider PausePredicate) *Consumer {
+func New(brokers []string, groupID string, topic string, h MessageHandler, readerConfig kafka.ReaderConfig, gate *Gate, workerCount int, backoffBase time.Duration, backoffMax time.Duration, log Logger, decider PausePredicate) *Consumer {
 	// If the handler implements the TopicSetter interface, set the topic
 	if ts, ok := h.(TopicSetter); ok {
 		ts.SetTopic(topic)
@@ -48,9 +49,13 @@ func New(brokers []string, groupID string, topic string, h MessageHandler, gate 
 		decider = func(err error) bool { return false }
 	}
 
+	// Set to 0 so that autocommit wont happen
+	readerConfig.CommitInterval = 0
+
 	return &Consumer{
 		topic:         topic,
 		handler:       h,
+		readerConfig:  readerConfig,
 		brokers:       brokers,
 		groupID:       groupID,
 		gate:          gate,
@@ -87,16 +92,7 @@ func (c *Consumer) Start(ctx context.Context) {
 					}
 				}
 
-				c.reader = kafka.NewReader(kafka.ReaderConfig{
-					Brokers: c.brokers,
-					GroupID: c.groupID,
-					Topic:   c.topic,
-					// Disable auto-commit; we'll commit only on successful processing
-					CommitInterval: 0,
-					MinBytes:       10e2,
-					MaxBytes:       10e6,
-					StartOffset:    kafka.LastOffset,
-				})
+				c.reader = kafka.NewReader(c.readerConfig)
 
 				// Run consumption until context done or a handler error triggers stop
 				c.consume(ctx)
@@ -172,7 +168,7 @@ func (c *Consumer) startWorkers(ctx context.Context, workers *sync.WaitGroup, jo
 						// Run the actual business handler. The handler itself is responsible
 						// for calling the external API and must return api.ErrUnavailable
 						// when the API is down so the coordinator can retry/backoff.
-						err := c.handler.Handle(procCtx, j.msg.Value)
+						err := c.handler.Handle(procCtx, j.msg)
 						if c.pauseDecider != nil && c.pauseDecider(err) && c.gate != nil {
 							// Flip the gate to unhealthy to pause new fetches during retry
 							c.gate.SetHealthy(false)
@@ -191,7 +187,7 @@ func (c *Consumer) makeCoordinator(ctx context.Context, results <-chan result) (
 	processFn := func(procCtx context.Context, msg kafka.Message) error {
 		// ensure retries carry the same trace_id
 		procCtx = withTraceID(procCtx, traceID(c.topic, msg))
-		return c.handler.Handle(procCtx, msg.Value)
+		return c.handler.Handle(procCtx, msg)
 	}
 
 	coord := NewCoordinatorWithProcessor(c.topic, c.reader, c.gate, c.cancel, processFn, c.backoffBase, c.backoffMax, c.log, c.pauseDecider)

@@ -227,7 +227,7 @@ type blockingHandler struct {
 	doneCh  chan<- struct{}
 }
 
-func (h *blockingHandler) Handle(ctx context.Context, message []byte) error {
+func (h *blockingHandler) Handle(ctx context.Context, message kafka.Message) error {
 	<-h.startCh
 	time.Sleep(50 * time.Millisecond)
 	h.doneCh <- struct{}{}
@@ -309,7 +309,7 @@ type mockHandler struct {
 	calls []int64
 }
 
-func (h *mockHandler) Handle(ctx context.Context, message []byte) error {
+func (h *mockHandler) Handle(ctx context.Context, message kafka.Message) error {
 	// message carries the offset in tests for simplicity
 	// Not relying on message content; tests coordinate via offsets list
 	h.mu.Lock()
@@ -328,7 +328,7 @@ type pauseOnceHandler struct {
 	err   error
 }
 
-func (h *pauseOnceHandler) Handle(ctx context.Context, message []byte) error {
+func (h *pauseOnceHandler) Handle(ctx context.Context, message kafka.Message) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if !h.fired {
@@ -437,7 +437,7 @@ type panicHandler struct {
 	calls     int
 }
 
-func (h *panicHandler) Handle(ctx context.Context, message []byte) error {
+func (h *panicHandler) Handle(ctx context.Context, message kafka.Message) error {
 	h.Lock()
 	defer h.Unlock()
 	h.calls++

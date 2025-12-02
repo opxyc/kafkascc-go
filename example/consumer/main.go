@@ -11,6 +11,7 @@ import (
 	"github.com/opxyc/kafkascc-go/example/consumer/config"
 	"github.com/opxyc/kafkascc-go/example/consumer/handler"
 	l "github.com/opxyc/kafkascc-go/logger/log"
+	"github.com/segmentio/kafka-go"
 )
 
 func main() {
@@ -29,13 +30,24 @@ func main() {
 
 	logger := l.New(log.Default()).With("service", "kafkascc-go")
 
+	readerConfig := kafka.ReaderConfig{
+		Brokers: cfg.Kafka.Brokers,
+		GroupID: cfg.Kafka.GroupID,
+		Topic:   cfg.Kafka.Topic,
+		// Disable auto-commit; we'll commit only on successful processing
+		CommitInterval: 0,
+		MinBytes:       10e2,
+		MaxBytes:       10e6,
+		StartOffset:    kafka.LastOffset,
+	}
+
 	workerCount := 8
 	testTopicConsumer := consumer.New(
 		cfg.Kafka.Brokers,
 		cfg.Kafka.GroupID,
 		cfg.Kafka.Topic,
-		// Handler that posts to the API and signals api.ErrUnavailable on outages
 		handler.NewAPIPostHandler(cfg.APIBaseURL, logger),
+		readerConfig,
 		gate,
 		workerCount,
 		cfg.BackoffBase,
